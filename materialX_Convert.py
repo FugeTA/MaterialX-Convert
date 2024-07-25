@@ -271,5 +271,5 @@ def makeWindow():
             with pm.horizontalLayout():
                 pm.button(l='Create',c=pm.Callback(newAttr,ws))
 
-
-makeWindow()
+if __name__ == '__main__':
+    openWindow()
