@@ -12,9 +12,9 @@ import materialX_Convert
 materialX_Convert.openWindow()
 ```
 ## 説明
-1.Maya上でStandardSurface,AiStandardSurfaceマテリアルを作成。  
-2.Hypershadeでマテリアルを選択する。（一度に変換できるマテリアルは一つ）  
-3.保存先フォルダ、保存ファイル名を設定。  
+1.Maya上でStandardSurface（AiStandardSurface）のマテリアルを作成。  
+2.Hypershadeからマテリアルを選択する。（一度に変換できるマテリアルの数は一つ）  
+3.保存先のフォルダ、保存するファイル名を設定。  
 　テクスチャ画像を別フォルダにコピーするか、絶対パスにするかの設定、  
 　画像の保存先を設定する（デフォルトはmtlxと同階層に"Texture"フォルダを作成）  
 4."Create" ボタンで実行する。
