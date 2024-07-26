@@ -245,7 +245,7 @@ def checkname():
         return(False)
     return(s)
 
-def makeWindow():
+def openWindow():
     project = pm.workspace(q=True,fn=True)
     winname = 'MaterialX_Convert'
     if pm.window(winname,ex=True)==True:  # すでにウィンドウがあれば閉じてから開く
