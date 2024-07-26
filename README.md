@@ -1,5 +1,5 @@
 # MaterialX_Convert
-
+![screenshot](images/materialx.PNG)  
 ## 概要
 Mayaで作成したマテリアルをMaterialXに変換するツールです。
 ## 要件
