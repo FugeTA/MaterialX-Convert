@@ -221,10 +221,14 @@ def wndisable(ws):
 def getPath(ws,n):
     if n:
         path = pm.fileDialog2(fm=3,okc='Select',dir=(ws['mainpath'].getText()))
+        if path == None:
+            return
         ws['mainpath'].setText(str(path[0]))
         ws['texpath'].setText(str(path[0])+'/textures')
     else:
         path = pm.fileDialog2(fm=3,okc='Select',dir=(ws['texpath'].getText()))
+        if path == None:
+            return
         ws['texpath'].setText(str(path[0]))
 
 def overwrite():
