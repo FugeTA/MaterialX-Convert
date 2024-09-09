@@ -1,10 +1,21 @@
-import pymel.core as pm
+import maya.cmds as cmds
+from functools import partial
+from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
 import shutil
 import os
 
-def newAttr(ws):
+def convertRelative(target,current):
+    absp = Path(current).resolve()
+    try:
+        relp = absp.relative_to(target)
+    except ValueError:
+        cmds.confirmDialog(t='Error',m=('Path is not in the subpath'),b='close')
+        return()
+    return(str(relp).replace('/','\\'))
+
+def newAttr(ws,*args):
     s=checkname()
     if s == False:
         return
@@ -15,8 +26,8 @@ def newAttr(ws):
     ssnodes = []
     for i,attr in enumerate(ssattr):
         name = s[0] + '.' + attr
-        value = pm.getAttr(name)
-        default = pm.attributeQuery(attr, n=s[0], ld=True)
+        value = cmds.getAttr(name)
+        default = cmds.attributeQuery(attr, n=s[0], ld=True)
         if len(default) > 1:
             default = tuple(default)
         else:
@@ -33,7 +44,7 @@ def newAttr(ws):
             mxnodes.append(mxattr[i])
             ssnodes.append(attr)
     if newattr==[]:
-        err = pm.confirmDialog(t='Error',m='This material is the default.\nCreation has stopped',b='Close')
+        err = cmds.confirmDialog(t='Error',m='This material is the default.\nCreation has stopped',b='Close')
         return
     getNodePath(ssnodes,mxnodes,newattr,ws,s)
 
@@ -49,40 +60,45 @@ def getNodePath(ssnodes,mxnodes,newattr,ws,s):
     for i in ssnodes:
         attr = s[0]+'.'+i
         if i == 'normalCamera':
-            nm = pm.connectionInfo(attr,sfd=True)
+            nm = cmds.connectionInfo(attr,sfd=True)
             if(nm==''):
                 continue
             nm = re.sub(r'\.(.*)', '',nm)
-            attr = pm.ls(nm)[0]+'.input'
+            attr = cmds.ls(nm)[0]+'.input'
             mxnodes.append('normal')
         if i == 'displacementShader':
-            dis = pm.listConnections(s[0],s=False,type='shadingEngine')
-            attr = pm.connectionInfo(dis[0].displacementShader,sfd=True)
+            dis = cmds.listConnections(s[0],s=False,type='shadingEngine')
+            attr = cmds.connectionInfo(dis[0]+'.displacementShader',sfd=True)
             if(attr==''):
                 continue
-            scl = pm.ls(pm.listConnections(dis[0],d=False,type='displacementShader'))[0].scale.get()
+            scl = cmds.ls(cmds.listConnections(dis[0],d=False,type='displacementShader'))[0].scale.get()
             mxnodes.append('height')
-        if(con := pm.connectionInfo(attr,sfd=True))!='':
+        if(con := cmds.connectionInfo(attr,sfd=True))!='':
             path = re.sub(r'\.(.*)', '',con)
-            path = pm.ls(path)[0].fileTextureName.get()
+            path = cmds.getAttr(cmds.ls(path)[0]+'.fileTextureName')
             paths.append(path)
             isfile.append(1)
         else:
             isfile.append(0)
-    mFolder = ws['mainpath'].getText()
+    mFolder = cmds.textField(ws['mainpath'],q=True,tx=True)
     mFolder = str(mFolder.replace('/','\\'))
-    tFolder = ws['texpath'].getText()
+    tFolder = cmds.textField(ws['texpath'],q=True,tx=True)
     tFolder = str(tFolder.replace('/','\\'))
-    filename = ws['mtlxname'].getText()
-    if ws['check1'].getValue():
-        if not os.path.isdir(tFolder):
-            os.makedirs(tFolder)
+    filename = cmds.textField(ws['mtlxname'],q=True,tx=True)
+    if cmds.checkBox(ws['check1'],q=True,v=True):
+        path=Path(tFolder)
+        if not path.is_dir():
+            Path.makedirs(tFolder)
         for i,p in enumerate(paths):
             copytex(p,tFolder)
-            if ws['check2'].getValue():
-                paths[i] = tFolder + re.sub(r'(.*/)', r'\\',p)
-            else:
-                paths[i] = re.sub(r'\\','',tFolder.replace(mFolder,'')) +re.sub(r'(.*/)', r'\\',p)
+            file = Path(p)
+            paths[i] = tFolder +'/'+ file.name  #pathsを変える
+    if cmds.checkBox(ws['check2'],q=True,v=True):
+        for i,p in enumerate(paths):
+            new = convertRelative(mFolder,p)
+            if new == '':
+                #brake
+            paths[i] = convertRelative(mFolder,p)
     save_xml(mxnodes,paths,filename,mFolder,scl,isfile,newattr)
 
 def tex(nodes,paths,elemNG,isfile):
@@ -208,72 +224,75 @@ def save_xml(nodes,paths,s,mFolder,scl,isfile,newattr):
     ET.indent(tree, '  ')
     tree.write(mFolder+'\\'+s+'.mtlx',encoding='utf-8',xml_declaration=True)
 
-def wndisable(ws):
-    if ws['check1'].getValue():
-        pm.textField(ws['texpath'],e=True,en=True)
-        pm.button(ws['button3'],e=True,en=True)
-        pm.checkBox(ws['check2'],e=True,en=True)
+def wndisable(ws,*args):
+    if cmds.checkBox(ws['check1'],q=True,v=True):
+        cmds.textField(ws['texpath'],e=True,en=True)
+        cmds.button(ws['button3'],e=True,en=True)
     else:
-        pm.textField(ws['texpath'],e=True,en=False)
-        pm.button(ws['button3'],e=True,en=False)
-        pm.checkBox(ws['check2'],e=True,en=False)
+        cmds.textField(ws['texpath'],e=True,en=False)
+        cmds.button(ws['button3'],e=True,en=False)
 
-def getPath(ws,n):
+def getPath(ws,n,*args):
     if n:
-        path = pm.fileDialog2(fm=3,okc='Select',dir=(ws['mainpath'].getText()))
-        if path == None:
-            return
-        ws['mainpath'].setText(str(path[0]))
-        ws['texpath'].setText(str(path[0])+'/textures')
+        path = cmds.fileDialog2(fm=3,okc='Select',dir=(cmds.textField(ws['mainpath'],q=True,tx=True)))
+        cmds.textField(ws['mainpath'],e=True,tx=str(path[0]))
+        cmds.textField(ws['texpath'],e=True,tx=str(path[0])+'/textures')
     else:
-        path = pm.fileDialog2(fm=3,okc='Select',dir=(ws['texpath'].getText()))
-        if path == None:
-            return
-        ws['texpath'].setText(str(path[0]))
+        path = cmds.fileDialog2(fm=3,okc='Select',dir=(cmds.textField(ws['texpath'],q=True,tx=True)))
+        cmds.textField(ws['texpath'],e=True,tx=str(path[0]))
 
 def overwrite():
-    pm.confirmDialog(t='Warning',m='File has already exists.\nDo you want to replace it?',b=['Yes','No'])
+    cmds.confirmDialog(t='Warning',m='File has already exists.\nDo you want to replace it?',b=['Yes','No'])
 
-def getname(ws):
-    s = pm.ls(sl=True)
+def getname(ws,*args):
+    s = cmds.ls(sl=True)
     if checkname() != False:
-        ws['mtlxname'].setText(s[0])
+        cmds.textField(ws['mtlxname'],e=True,tx=s[0])
         
 def checkname():
-    s = pm.ls(sl=True)
+    s = cmds.ls(sl=True)
     if s==[]:
-        pm.confirmDialog(t='Error',m='Please select a Material.',b='Close')
+        cmds.confirmDialog(t='Error',m='Please select a Material.',b='Close')
         return(False)
-    if  pm.objectType(s[0]) not in ['aiStandardSurface','standardSurface']:
-        pm.confirmDialog(t='Error',m='Please select a StandardSurface Material.',b='Close')
+    if  cmds.objectType(s[0]) not in ['aiStandardSurface','standardSurface']:
+        cmds.confirmDialog(t='Error',m='Please select a StandardSurface Material.',b='Close')
         return(False)
     return(s)
 
-def openWindow():
-    project = pm.workspace(q=True,fn=True)
+def makeWindow():
+    project = cmds.workspace(q=True,fn=True)
     winname = 'MaterialX_Convert'
-    if pm.window(winname,ex=True)==True:  # すでにウィンドウがあれば閉じてから開く
-        pm.deleteUI(winname)
-    with pm.window(winname) as wn:
-        with pm.autoLayout():
-            ws={}
-            with pm.frameLayout(l='Save folder'):
-                with pm.horizontalLayout():
-                    ws['mainpath'] = pm.textField(text=project)
-                    ws['button1'] = pm.button(l='Select folder',c=pm.Callback(getPath,ws,1))
-            with pm.frameLayout(l='File name'):
-                with pm.horizontalLayout():
-                    ws['mtlxname'] = pm.textField(text='standardSurface')
-                    ws['button2'] = pm.button(l='Use material name',c=pm.Callback(getname,ws))
-            with pm.frameLayout(l='TextureCopy'):
-                with pm.horizontalLayout():
-                    ws['check1'] = pm.checkBox(l='Copy texture file',cc=pm.Callback(wndisable,ws)) 
-                    ws['check2'] = pm.checkBox(l='Absolute path',en=False) 
-                with pm.horizontalLayout():
-                    ws['texpath'] = pm.textField(text=project+'/textures',en=False)
-                    ws['button3'] = pm.button(l='Select folder',c=pm.Callback(getPath,ws,0),en=False)
-            with pm.horizontalLayout():
-                pm.button(l='Create',c=pm.Callback(newAttr,ws))
+    if cmds.window(winname,q=True,ex=True)==True:  # すでにウィンドウがあれば閉じてから開く
+        cmds.deleteUI(winname,window=True)
+    cmds.window(winname,s=True,rtf=True)  # ウィンドウの作成
+    ws={}
+    cmds.columnLayout()
+    cmds.frameLayout(l='Save folder')
+    ws['check2'] = cmds.checkBox(l='Relative path') 
+    cmds.rowLayout(nc=2)
+    ws['mainpath'] = cmds.textField(text=project)
+    ws['button1'] = cmds.button(l='Select folder',c=partial(getPath,ws,1))
+    cmds.setParent('..')
+    cmds.setParent('..')
+    
+    cmds.frameLayout(l='File name')
+    cmds.rowLayout(nc=2)
+    ws['mtlxname'] = cmds.textField(text='standardSurface')
+    ws['button2'] = cmds.button(l='Use material name',c=partial(getname,ws))
+    cmds.setParent('..')
+    cmds.setParent('..')
+    
+    cmds.frameLayout(l='TextureCopy')    
+    ws['check1'] = cmds.checkBox(l='Copy texture file',cc=partial(wndisable,ws)) 
+    
+    cmds.rowLayout(nc=2)
+    ws['texpath'] = cmds.textField(text=project+'/textures',en=False)
+    ws['button3'] = cmds.button(l='Select folder',c=partial(getPath,ws,0),en=False)
+    cmds.setParent('..')
+    
+    cmds.button(l='Create',c=partial(newAttr,ws))
+    
+    cmds.setParent('..')
 
-if __name__ == '__main__':
-    openWindow()
+    cmds.showWindow(winname)
+makeWindow()
