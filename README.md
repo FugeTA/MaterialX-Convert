@@ -1,9 +1,10 @@
-# MaterialX_Convert
+# MaterialX_Convert for maya.cmds
 ![screenshot](images/materialx.PNG)  
 ## 概要
-Mayaで作成したマテリアルをMaterialXに変換するツールです。
+Mayaで作成したマテリアルをMaterialXに変換するツールです。  
+pymelが不要なバージョンです。  
 ## 要件
-[pymel](https://github.com/LumaPictures/pymel)
+なし
 ## 使い方
 1.ドキュメントのmaya/使用バージョン/script内に.pyファイルを移動する。  
 2.以下のコマンドを実行する。
@@ -11,6 +12,7 @@ Mayaで作成したマテリアルをMaterialXに変換するツールです。
 import materialX_Convert
 materialX_Convert.openWindow()
 ```
+またはscriptEditor上で直に実行する。　　
 ## 説明
 1.Maya上でStandardSurface（AiStandardSurface）のマテリアルを作成。  
 2.Hypershadeからマテリアルを選択する。（一度に変換できるマテリアルの数は一つ）  
