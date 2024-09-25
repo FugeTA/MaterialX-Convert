@@ -1,8 +1,17 @@
 import pymel.core as pm
+from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
 import shutil
-import os
+
+def convertRelative(target,current):
+    absp = Path(current).resolve()
+    try:
+        relp = absp.relative_to(target)
+    except ValueError:
+        pm.confirmDialog(t='Error',m=('Path is not in the subpath'),b='close')
+        return()
+    return(str(relp).replace('\\','/'))
 
 def newAttr(ws):
     s=checkname()
@@ -72,17 +81,22 @@ def getNodePath(ssnodes,mxnodes,newattr,ws,s):
     mFolder = ws['mainpath'].getText()
     mFolder = str(mFolder.replace('/','\\'))
     tFolder = ws['texpath'].getText()
-    tFolder = str(tFolder.replace('/','\\'))
+
     filename = ws['mtlxname'].getText()
     if ws['check1'].getValue():
-        if not os.path.isdir(tFolder):
-            os.makedirs(tFolder)
+        path=Path(tFolder)
+        if not path.is_dir():
+            Path.makedirs(tFolder)
         for i,p in enumerate(paths):
             copytex(p,tFolder)
-            if ws['check2'].getValue():
-                paths[i] = tFolder + re.sub(r'(.*/)', r'\\',p)
-            else:
-                paths[i] = re.sub(r'\\','',tFolder.replace(mFolder,'')) +re.sub(r'(.*/)', r'\\',p)
+            file = Path(p)
+            paths[i] = (tFolder +'/'+ file.name).replace('\\','/')  #pathsを変える
+    if ws['check2'].getValue():
+        for i,p in enumerate(paths):
+            new = convertRelative(mFolder,p)
+            if new == '':
+                break
+            paths[i] = convertRelative(mFolder,p)
     save_xml(mxnodes,paths,filename,mFolder,scl,isfile,newattr)
 
 def tex(nodes,paths,elemNG,isfile):
@@ -212,11 +226,9 @@ def wndisable(ws):
     if ws['check1'].getValue():
         pm.textField(ws['texpath'],e=True,en=True)
         pm.button(ws['button3'],e=True,en=True)
-        pm.checkBox(ws['check2'],e=True,en=True)
     else:
         pm.textField(ws['texpath'],e=True,en=False)
         pm.button(ws['button3'],e=True,en=False)
-        pm.checkBox(ws['check2'],e=True,en=False)
 
 def getPath(ws,n):
     if n:
@@ -258,6 +270,7 @@ def openWindow():
         with pm.autoLayout():
             ws={}
             with pm.frameLayout(l='Save folder'):
+                ws['check2'] = pm.checkBox(l='Relative path') 
                 with pm.horizontalLayout():
                     ws['mainpath'] = pm.textField(text=project)
                     ws['button1'] = pm.button(l='Select folder',c=pm.Callback(getPath,ws,1))
@@ -268,7 +281,6 @@ def openWindow():
             with pm.frameLayout(l='TextureCopy'):
                 with pm.horizontalLayout():
                     ws['check1'] = pm.checkBox(l='Copy texture file',cc=pm.Callback(wndisable,ws)) 
-                    ws['check2'] = pm.checkBox(l='Absolute path',en=False) 
                 with pm.horizontalLayout():
                     ws['texpath'] = pm.textField(text=project+'/textures',en=False)
                     ws['button3'] = pm.button(l='Select folder',c=pm.Callback(getPath,ws,0),en=False)
