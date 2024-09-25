@@ -38,6 +38,7 @@ def newAttr(ws):
                 value = str(value[0])+', '+str(value[1])+', '+str(value[2])
             else:
                 type = 'boolean'
+                value = str.lower(str(value))
             newattr.append([mxattr[i],type,value])
             mxnodes.append(mxattr[i])
             ssnodes.append(attr)
