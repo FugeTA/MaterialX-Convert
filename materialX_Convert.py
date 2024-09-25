@@ -13,7 +13,7 @@ def convertRelative(target,current):
     except ValueError:
         cmds.confirmDialog(t='Error',m=('Path is not in the subpath'),b='close')
         return()
-    return(str(relp).replace('/','\\'))
+    return(str(relp).replace('\\','/'))
 
 def newAttr(ws,*args):
     s=checkname()
@@ -29,17 +29,18 @@ def newAttr(ws,*args):
         value = cmds.getAttr(name)
         default = cmds.attributeQuery(attr, n=s[0], ld=True)
         if len(default) > 1:
-            default = tuple(default)
+            default = [tuple(default)]
         else:
             default = default[0]
         if value!=default:
             if isinstance(value,float):
                 type = 'float'
-            elif isinstance(value,tuple):
+            elif isinstance(value,list):
                 type = 'color3'
-                value = str(value[0])+', '+str(value[1])+', '+str(value[2])
+                value = str(value[0][0])+', '+str(value[0][1])+', '+str(value[0][2])
             else:
                 type = 'boolean'
+                value = str.lower(str(value))
             newattr.append([mxattr[i],type,value])
             mxnodes.append(mxattr[i])
             ssnodes.append(attr)
@@ -83,7 +84,7 @@ def getNodePath(ssnodes,mxnodes,newattr,ws,s):
     mFolder = cmds.textField(ws['mainpath'],q=True,tx=True)
     mFolder = str(mFolder.replace('/','\\'))
     tFolder = cmds.textField(ws['texpath'],q=True,tx=True)
-    tFolder = str(tFolder.replace('/','\\'))
+
     filename = cmds.textField(ws['mtlxname'],q=True,tx=True)
     if cmds.checkBox(ws['check1'],q=True,v=True):
         path=Path(tFolder)
@@ -92,12 +93,12 @@ def getNodePath(ssnodes,mxnodes,newattr,ws,s):
         for i,p in enumerate(paths):
             copytex(p,tFolder)
             file = Path(p)
-            paths[i] = tFolder +'/'+ file.name  #pathsを変える
+            paths[i] = (tFolder +'/'+ file.name).replace('\\','/')  #pathsを変える
     if cmds.checkBox(ws['check2'],q=True,v=True):
         for i,p in enumerate(paths):
             new = convertRelative(mFolder,p)
             if new == '':
-                #brake
+                break
             paths[i] = convertRelative(mFolder,p)
     save_xml(mxnodes,paths,filename,mFolder,scl,isfile,newattr)
 
@@ -286,7 +287,7 @@ def makeWindow():
     ws['check1'] = cmds.checkBox(l='Copy texture file',cc=partial(wndisable,ws)) 
     
     cmds.rowLayout(nc=2)
-    ws['texpath'] = cmds.textField(text=project+'/textures',en=False)
+    ws['texpath'] = cmds.textField(text=project+'\\textures',en=False)
     ws['button3'] = cmds.button(l='Select folder',c=partial(getPath,ws,0),en=False)
     cmds.setParent('..')
     
