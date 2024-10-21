@@ -1,23 +1,162 @@
 import maya.cmds as cmds
-from functools import partial
+from PySide2 import QtWidgets,QtGui,QtCore
+from maya.app.general import mayaMixin
 from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
 import shutil
 
-def convertRelative(target,current):
+
+#  エラー用ダイアログ
+class ErrorWindow(mayaMixin.MayaQWidgetBaseMixin,QtWidgets.QWidget):
+    def __init__(self,eText):
+        super().__init__()
+        self.msgBox = QtWidgets.QMessageBox()
+        self.msgBox.setWindowTitle(self.tr("Error"))
+        self.msgBox.setIcon(QtWidgets.QMessageBox.Warning)
+        
+        messages = [self.tr('Please choose save folder'),self.tr('Path must in the subpath'),self.tr('Path must in the subpath'),self.tr('This material is the default.\nCreation has stopped'),self.tr('Please choose copy folder'),self.tr('File has already exists.\nDo you want to replace it?'),self.tr('Please select a Material.'),self.tr('Please select a StandardSurface Material.')]
+
+        self.msgBox.setText(messages[eText-1])
+        self.ok = self.msgBox.addButton(QtWidgets.QMessageBox.Ok)
+        self.msgBox.exec()
+        closeOldWindow("Error")
+
+class MainWindow(mayaMixin.MayaQWidgetBaseMixin,QtWidgets.QWidget):
+    def __init__(self,title,translator):
+        super().__init__()
+        
+        self.translator = translator
+        self.setWindowTitle(title)
+        layout = QtWidgets.QVBoxLayout()
+        
+        #  言語選択
+        layout1 = QtWidgets.QHBoxLayout()
+        self.combobox1 = QtWidgets.QComboBox(self)
+        self.combobox1.addItems(["日本語", "English"])
+        self.combobox1.currentIndexChanged.connect(self.langSwitch)
+        layout1.addWidget(self.combobox1)
+        layout.addLayout(layout1)
+        
+        self.label1 = QtWidgets.QLabel(self.tr("<b>Save folder</b>"))
+        self.label1.setMargin(5)
+        layout.addWidget(self.label1)
+
+        self.checkbox1 = QtWidgets.QCheckBox(self.tr("Relative path"))
+        layout.addWidget(self.checkbox1)
+
+        layout2 = QtWidgets.QHBoxLayout()
+        self.textbox1 = QtWidgets.QLineEdit(self.tr("Save Path"))
+        layout2.addWidget(self.textbox1)
+        self.button1 = QtWidgets.QPushButton("...")
+        self.button1.clicked.connect(self.pushed_button1)
+        layout2.addWidget(self.button1)
+        layout.addLayout(layout2)
+
+        self.label2 = QtWidgets.QLabel(self.tr("<b>Filename</b>"))
+        self.label2.setMargin(5)
+        layout.addWidget(self.label2)
+
+        layout3 = QtWidgets.QHBoxLayout()
+        self.textbox2 = QtWidgets.QLineEdit("standardSurface")
+        layout3.addWidget(self.textbox2)
+        self.button2 = QtWidgets.QPushButton(self.tr("Use material name"))
+        self.button2.clicked.connect(self.pushed_button2)
+        layout3.addWidget(self.button2)
+        layout.addLayout(layout3)
+
+        self.label3 = QtWidgets.QLabel(self.tr("<b>Copy Texture</b>"))
+        self.label3.setMargin(5)
+        layout.addWidget(self.label3)
+        self.checkbox2 = QtWidgets.QCheckBox(self.tr("Copy"))
+        layout.addWidget(self.checkbox2)
+        
+        layout4 = QtWidgets.QHBoxLayout()
+        self.textbox3 = QtWidgets.QLineEdit(self.tr("Copy Path"))
+        layout4.addWidget(self.textbox3)
+        self.button3 = QtWidgets.QPushButton("...")
+        self.button3.clicked.connect(self.pushed_button3)
+        layout4.addWidget(self.button3)
+        layout.addLayout(layout4)
+        
+        self.spacerItem1 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        layout.addItem(self.spacerItem1)
+        
+        self.frame = QtWidgets.QFrame()
+        self.frame.setFrameShape(QtWidgets.QFrame.HLine)
+        self.frame.setFrameShadow(QtWidgets.QFrame.Sunken)
+        layout.addWidget(self.frame)
+        
+        self.button4 = QtWidgets.QPushButton(self.tr("Create"))
+        self.button4.clicked.connect(self.pushed_button4)
+        layout.addWidget(self.button4)
+
+        self.setLayout(layout)
+        self.setStyleSheet("QLabel { background-color : rgb(100,100,100); }")
+    
+    def pushed_button1(self):
+        chpath = QtWidgets.QFileDialog.getExistingDirectory()
+        if not chpath:
+            return()
+        path2= re.sub('.*sourceimages','sourceimages',chpath)
+        self.textbox1.setText(path2)
+
+    def pushed_button2(self):
+        getname(self)
+
+    def pushed_button3(self):
+        chpath = QtWidgets.QFileDialog.getExistingDirectory()
+        if not chpath:
+            return()
+        path2= re.sub('.*sourceimages','sourceimages',chpath)
+        self.textbox3.setText(path2)
+
+    def pushed_button4(self):
+        mFolder = self.textbox1.text()
+        check = Path(mFolder)
+        if not check.is_dir():
+            ErrorWindow(1)
+            return()
+        tFolder = self.textbox3.text()
+        filename = self.textbox2.text()
+        ch1 = self.checkbox1.isChecked()
+        ch2 = self.checkbox2.isChecked()
+        input = [mFolder,tFolder,filename,ch1,ch2]
+        newAttr(input)
+        
+    def langSwitch(self):
+        if self.combobox1.currentIndex() == 0:
+            qm_file = r"mtlx_Jp.qm"
+        else:
+            qm_file = r"mtlx_En.qm"
+    
+        self.translator.load(qm_file,directory = cmds.workspace(q=True,rootDirectory=True)+'\\scripts\\i18n')
+        QtCore.QCoreApplication.installTranslator(self.translator)
+                
+        self.label1.setText(self.tr("<b>Save folder</b>"))
+        self.checkbox1.setText(self.tr("Relative path"))
+        self.textbox1.setText(self.tr("Save Path"))
+        self.label2.setText(self.tr("<b>Filename</b>"))
+        self.textbox2.setText("standardSurface")
+        self.button2.setText(self.tr("Use material name"))
+        self.label3.setText(self.tr("<b>Copy Texture</b>"))
+        self.checkbox2.setText(self.tr("Copy"))
+        self.textbox3.setText(self.tr("Copy Path"))
+        self.button4.setText(self.tr("Create"))
+        
+def convertRelative(target,current,copy):
     absp = Path(current).resolve()
     try:
         relp = absp.relative_to(target)
     except ValueError:
-        cmds.confirmDialog(t='Error',m=('Path is not in the subpath'),b='close')
-        return()
+        ErrorWindow(2)
+        return(None)
     return(str(relp).replace('\\','/'))
 
-def newAttr(ws,*args):
-    s=checkname()
-    if s == False:
-        return
+def newAttr(input):
+    s = cmds.ls(sl=True)
+    if checkname(s) == False:
+        return()
     mxattr = ["base","base_color","diffuse_roughness","specular","specular_color","specular_roughness","specular_IOR","specular_anisotropy","specular_rotation","metalness","transmission","transmission_color","transmission_depth","transmission_scatter","transmission_scatter_anisotropy","transmission_dispersion","transmission_extra_roughness","subsurface","subsurface_color","subsurface_radius","subsurface_scale","subsurface_anisotropy","sheen","sheen_color","sheen_roughness","thin_walled","coat","coat_color","coat_roughness","coat_anisotropy","coat_rotation","coat_IOR","coat_affect_color","coat_affect_roughness","thin_film_thickness","thin_film_IOR","emission","emission_color","opacity","normal","displacement"]
     ssattr = ["base","baseColor","diffuseRoughness","specular","specularColor","specularRoughness","specularIOR","specularAnisotropy","specularRotation","metalness","transmission","transmissionColor","transmissionDepth","transmissionScatter","transmissionScatterAnisotropy","transmissionDispersion","transmissionExtraRoughness","subsurface","subsurfaceColor","subsurfaceRadius","subsurfaceScale","subsurfaceAnisotropy","sheen","sheenColor","sheenRoughness","thinWalled","coat","coatColor","coatRoughness","coatAnisotropy","coatRotation","coatIOR","coatAffectColor","coatAffectRoughness","thinFilmThickness","thinFilmIOR","emission","emissionColor","opacity"]
     newattr = []
@@ -44,14 +183,16 @@ def newAttr(ws,*args):
             mxnodes.append(mxattr[i])
             ssnodes.append(attr)
     if newattr==[]:
-        err = cmds.confirmDialog(t='Error',m='This material is the default.\nCreation has stopped',b='Close')
-        return
-    getNodePath(ssnodes,mxnodes,newattr,ws,s)
+        ErrorWindow(3)
+        return()
+    
+    
+    getNodePath(ssnodes,mxnodes,newattr,s,input)
 
 def copytex(bfile,afolder):
     shutil.copy(bfile,afolder)
 
-def getNodePath(ssnodes,mxnodes,newattr,ws,s):
+def getNodePath(ssnodes,mxnodes,newattr,s,input):
     paths=[]
     isfile=[]
     scl=0
@@ -80,25 +221,29 @@ def getNodePath(ssnodes,mxnodes,newattr,ws,s):
             isfile.append(1)
         else:
             isfile.append(0)
-    mFolder = cmds.textField(ws['mainpath'],q=True,tx=True)
-    mFolder = str(mFolder.replace('/','\\'))
-    tFolder = cmds.textField(ws['texpath'],q=True,tx=True)
+    
+    mFolder = str(input[0].replace('/','\\'))
+    tFolder = input[1]
+    filename = input[2]
 
-    filename = cmds.textField(ws['mtlxname'],q=True,tx=True)
-    if cmds.checkBox(ws['check1'],q=True,v=True):
+    if input[4]:
         path=Path(tFolder)
         if not path.is_dir():
-            Path.makedirs(tFolder)
+            ErrorWindow(4)
+            return()
+        if not path.exists():
+            path.mkdir()
         for i,p in enumerate(paths):
             copytex(p,tFolder)
             file = Path(p)
             paths[i] = (tFolder +'/'+ file.name).replace('\\','/')  #pathsを変える
-    if cmds.checkBox(ws['check2'],q=True,v=True):
+    if input[3]:
+        errors = 0
         for i,p in enumerate(paths):
-            new = convertRelative(mFolder,p)
-            if new == '':
-                break
-            paths[i] = convertRelative(mFolder,p)
+            new = convertRelative(mFolder,p,input[3])
+            if new == None:
+                return()
+            paths[i] = new
     save_xml(mxnodes,paths,filename,mFolder,scl,isfile,newattr)
 
 def tex(nodes,paths,elemNG,isfile):
@@ -224,75 +369,45 @@ def save_xml(nodes,paths,s,mFolder,scl,isfile,newattr):
     ET.indent(tree, '  ')
     tree.write(mFolder+'\\'+s+'.mtlx',encoding='utf-8',xml_declaration=True)
 
-def wndisable(ws,*args):
-    if cmds.checkBox(ws['check1'],q=True,v=True):
-        cmds.textField(ws['texpath'],e=True,en=True)
-        cmds.button(ws['button3'],e=True,en=True)
-    else:
-        cmds.textField(ws['texpath'],e=True,en=False)
-        cmds.button(ws['button3'],e=True,en=False)
-
-def getPath(ws,n,*args):
-    if n:
-        path = cmds.fileDialog2(fm=3,okc='Select',dir=(cmds.textField(ws['mainpath'],q=True,tx=True)))
-        cmds.textField(ws['mainpath'],e=True,tx=str(path[0]))
-        cmds.textField(ws['texpath'],e=True,tx=str(path[0])+'/textures')
-    else:
-        path = cmds.fileDialog2(fm=3,okc='Select',dir=(cmds.textField(ws['texpath'],q=True,tx=True)))
-        cmds.textField(ws['texpath'],e=True,tx=str(path[0]))
-
 def overwrite():
-    cmds.confirmDialog(t='Warning',m='File has already exists.\nDo you want to replace it?',b=['Yes','No'])
+    ErrorWindow(5)
 
-def getname(ws,*args):
+# マテリアルの名前を取得
+def getname(self):
     s = cmds.ls(sl=True)
-    if checkname() != False:
-        cmds.textField(ws['mtlxname'],e=True,tx=s[0])
-        
-def checkname():
-    s = cmds.ls(sl=True)
-    if s==[]:
-        cmds.confirmDialog(t='Error',m='Please select a Material.',b='Close')
+    if checkname(s) != False:
+        self.textbox2.setText(s[0])
+# 正しいマテリアルが選択されているか
+def checkname(s):
+    if s == []:
+        ErrorWindow(6)
         return(False)
     if  cmds.objectType(s[0]) not in ['aiStandardSurface','standardSurface']:
-        cmds.confirmDialog(t='Error',m='Please select a StandardSurface Material.',b='Close')
+        ErrorWindow(7)
         return(False)
-    return(s)
+    return(True)
 
-def makeWindow():
-    project = cmds.workspace(q=True,fn=True)
-    winname = 'MaterialX_Convert'
-    if cmds.window(winname,q=True,ex=True)==True:  # すでにウィンドウがあれば閉じてから開く
-        cmds.deleteUI(winname,window=True)
-    cmds.window(winname,s=True,rtf=True)  # ウィンドウの作成
-    ws={}
-    cmds.columnLayout()
-    cmds.frameLayout(l='Save folder')
-    ws['check2'] = cmds.checkBox(l='Relative path') 
-    cmds.rowLayout(nc=2)
-    ws['mainpath'] = cmds.textField(text=project)
-    ws['button1'] = cmds.button(l='Select folder',c=partial(getPath,ws,1))
-    cmds.setParent('..')
-    cmds.setParent('..')
-    
-    cmds.frameLayout(l='File name')
-    cmds.rowLayout(nc=2)
-    ws['mtlxname'] = cmds.textField(text='standardSurface')
-    ws['button2'] = cmds.button(l='Use material name',c=partial(getname,ws))
-    cmds.setParent('..')
-    cmds.setParent('..')
-    
-    cmds.frameLayout(l='TextureCopy')    
-    ws['check1'] = cmds.checkBox(l='Copy texture file',cc=partial(wndisable,ws)) 
-    
-    cmds.rowLayout(nc=2)
-    ws['texpath'] = cmds.textField(text=project+'\\textures',en=False)
-    ws['button3'] = cmds.button(l='Select folder',c=partial(getPath,ws,0),en=False)
-    cmds.setParent('..')
-    
-    cmds.button(l='Create',c=partial(newAttr,ws))
-    
-    cmds.setParent('..')
+def closeOldWindow(title):
+    for widget in QtWidgets.QApplication.topLevelWidgets():
+        if title == widget.windowTitle():
+           widget.deleteLater()
+           widget.close()
 
-    cmds.showWindow(winname)
-makeWindow()
+#  アプリの実行と終了
+def openWindow():
+    title = "MaterialX_Convert"
+    closeOldWindow(title)
+    
+    app = QtWidgets.QApplication.instance()
+    qm_file = r"mtlx_Jp.qm"
+    
+    translator = QtCore.QTranslator(app)
+    translator.load(qm_file,directory = cmds.workspace(q=True,rootDirectory=True)+'\\scripts\\i18n')
+    QtCore.QCoreApplication.installTranslator(translator)
+    
+    window = MainWindow(title,translator)
+    window.show()
+    app.exec_()
+    
+if __name__ == "__main__":
+    openWindow()
