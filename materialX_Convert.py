@@ -171,15 +171,15 @@ def newAttr(input):
         else:
             default = default[0]
         if value!=default:
-            if isinstance(value,float):
-                type = 'float'
-            elif isinstance(value,list):
-                type = 'color3'
+            if isinstance(value,type(float)):
+                types = 'float'
+            elif isinstance(value,type(list)):
+                types = 'color3'
                 value = str(value[0][0])+', '+str(value[0][1])+', '+str(value[0][2])
             else:
-                type = 'boolean'
+                types = 'boolean'
                 value = str.lower(str(value))
-            newattr.append([mxattr[i],type,value])
+            newattr.append([mxattr[i],types,value])
             mxnodes.append(mxattr[i])
             ssnodes.append(attr)
     if newattr==[]:
@@ -272,8 +272,19 @@ def tex(nodes,paths,elemNG,isfile):
         elemNGtex_2[i].set('name','file')
         elemNGtex_2[i].set('type','filename')
         elemNGtex_2[i].set('value',paths[i])
-        if node in ['base_color','opacity','normal']:
+        if node in ['base_color','opacity']:
             elemNGtex_2[i].set('colorspace','srgb_texture')
+        else:
+            elemNGtex_2[i].set('colorspace','Raw')
+        if node == 'normal':
+            elemNGtex_3 = (ET.SubElement(elemNG, 'normalmap'))
+            elemNGtex_3.set('name','normalMap')
+            elemNGtex_3.set('type','vector3')
+            elemNGtex_4 = (ET.SubElement(elemNGtex_3, 'input'))
+            elemNGtex_4.set('name','in')
+            elemNGtex_4.set('type','vector3')
+            elemNGtex_4.set('nodename','normal')
+
 
 def out(nodes,elemNG,isfile):
     elemNGout=[]
@@ -289,6 +300,7 @@ def out(nodes,elemNG,isfile):
             elemNGout[i].set('type','color3')
         elif node == 'normal':
             elemNGout[i].set('type','vector3')
+            node = 'normalMap'
         else:
             elemNGout[i].set('type','float')
         elemNGout[i].set('nodename',node)
