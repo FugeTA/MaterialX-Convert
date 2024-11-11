@@ -1,11 +1,10 @@
 import maya.cmds as cmds
-from PySide2 import QtWidgets,QtGui,QtCore
+from PySide2 import QtWidgets,QtCore
 from maya.app.general import mayaMixin
 from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
 import shutil
-
 
 #  エラー用ダイアログ
 class ErrorWindow(mayaMixin.MayaQWidgetBaseMixin,QtWidgets.QWidget):
@@ -13,6 +12,7 @@ class ErrorWindow(mayaMixin.MayaQWidgetBaseMixin,QtWidgets.QWidget):
         super().__init__()
         self.msgBox = QtWidgets.QMessageBox()
         self.msgBox.setWindowTitle(self.tr("Error"))
+        self.msgBox.setObjectName("Error_window")
         self.msgBox.setIcon(QtWidgets.QMessageBox.Warning)
         
         messages = [self.tr('Please choose save folder'),self.tr('Path must in the subpath'),self.tr('Path must in the subpath'),self.tr('This material is the default.\nCreation has stopped'),self.tr('Please choose copy folder'),self.tr('File has already exists.\nDo you want to replace it?'),self.tr('Please select a Material.'),self.tr('Please select a StandardSurface Material.')]
@@ -20,14 +20,16 @@ class ErrorWindow(mayaMixin.MayaQWidgetBaseMixin,QtWidgets.QWidget):
         self.msgBox.setText(messages[eText-1])
         self.ok = self.msgBox.addButton(QtWidgets.QMessageBox.Ok)
         self.msgBox.exec()
-        closeOldWindow("Error")
+        self.deleteLater()
 
 class MainWindow(mayaMixin.MayaQWidgetBaseMixin,QtWidgets.QWidget):
     def __init__(self,title,translator):
         super().__init__()
-        
-        self.translator = translator
         self.setWindowTitle(title)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)  # deleteLater()の自動実行
+        self.setObjectName(objName(title))  # ウィジェットとしての名前
+        self.translator = translator
+
         layout = QtWidgets.QVBoxLayout()
         
         #  言語選択
@@ -398,17 +400,18 @@ def checkname(s):
         ErrorWindow(7)
         return(False)
     return(True)
-
+#  ウィンドウがすでに起動していれば閉じる
 def closeOldWindow(title):
-    for widget in QtWidgets.QApplication.topLevelWidgets():
-        if title == widget.windowTitle():
-           widget.deleteLater()
-           widget.close()
+    if cmds.window(title, q=True, ex=True):  # ウィジェットの名前で削除
+        cmds.deleteUI(title)
 
+def objName(title):
+    return(title + "_window")
+    
 #  アプリの実行と終了
 def openWindow():
     title = "MaterialX_Convert"
-    closeOldWindow(title)
+    closeOldWindow(objName(title))
     
     app = QtWidgets.QApplication.instance()
     qm_file = r"mtlx_Jp.qm"
