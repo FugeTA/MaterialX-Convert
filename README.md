@@ -1,5 +1,5 @@
 # MaterialX_Convert for maya.cmds
-![screenshot](images/MtlxConverter_window.PNG)  
+![screenshot](images/mtlx.gif)  
 ## 概要
 Mayaで作成したマテリアルをMaterialXに変換するツールです。  
 pymelが不要なバージョンです。  
