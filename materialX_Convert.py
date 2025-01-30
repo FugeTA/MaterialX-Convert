@@ -1,5 +1,8 @@
 import maya.cmds as cmds
-from PySide2 import QtWidgets,QtCore
+try:
+    from PySide2 import QtWidgets,QtCore,QtGui
+except:
+    from PySide6 import QtWidgets,QtCore,QtGui
 from maya.app.general import mayaMixin
 from pathlib import Path
 import re
@@ -422,7 +425,10 @@ def openWindow():
     
     window = MainWindow(title,translator)
     window.show()
-    app.exec_()
+    try:
+        app.exec()  #Pyside6
+    except:
+        app.exec_()  #Pyside2
     
 if __name__ == "__main__":
     openWindow()
